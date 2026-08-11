@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\ChatController;
 
 Route::apiResource('cars', CarController::class);
 Route::post('register', [AuthController::class, 'register']);
@@ -16,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('bookings/{booking}', [BookingController::class, 'update']);
     Route::get('users/{user_id}/bookings', [BookingController::class, 'userBookings']);
     Route::get('my/bookings', [BookingController::class, 'myBookings']);
+    Route::get('customers', [AuthController::class, 'customers']);
     Route::post('bookings/check-availability', [BookingController::class, 'checkAvailability']);
     Route::get('payments', [PaymentController::class, 'index']);
     Route::post('payments', [PaymentController::class, 'store']);
@@ -23,4 +25,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('payments/{payment}/proof', [PaymentController::class, 'proof']);
     Route::get('/notifications/{userId}', [NotificationController::class, 'index']);
     Route::put('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
+    Route::post('/chat', [ChatController::class, 'chat']);
 });

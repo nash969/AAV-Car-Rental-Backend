@@ -67,4 +67,13 @@ class AuthController extends Controller
             'token' => $user->createToken('aav-web')->plainTextToken,
         ]);
     }
+
+    public function customers()
+    {
+        $customers = User::where('role', 'customer')
+            ->latest()
+            ->get();
+
+        return response()->json($customers);
+    }
 }
