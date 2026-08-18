@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use App\Models\Car;
 use App\Models\CarRate;
 
 class CarRateSeeder extends Seeder
@@ -12,64 +13,60 @@ class CarRateSeeder extends Seeder
      */
     public function run(): void
     {
-        // Toyota Vios (car_id = 2)
+        $vios = Car::firstOrCreate(
+            ['brand' => 'Toyota', 'model' => 'Vios'],
+            [
+                'year' => 2023,
+                'price_per_day' => 2000,
+                'transmission' => 'Automatic',
+                'seats' => 5,
+                'fuel_type' => 'Gasoline',
+                'available' => true,
+            ]
+        );
 
-        CarRate::create([
-            'car_id' => 2,
-            'location' => 'within',
-            'duration' => '12hrs',
-            'price' => 1800
-        ]);
+        $veloz = Car::firstOrCreate(
+            ['brand' => 'Toyota', 'model' => 'Veloz'],
+            [
+                'year' => 2023,
+                'price_per_day' => 3000,
+                'transmission' => 'Automatic',
+                'seats' => 7,
+                'fuel_type' => 'Gasoline',
+                'available' => true,
+            ]
+        );
 
-        CarRate::create([
-            'car_id' => 2,
-            'location' => 'within',
-            'duration' => '24hrs',
-            'price' => 2000
-        ]);
+        // Rates for Vios
+        $viosRates = [
+            ['location' => 'within', 'duration' => '12hrs', 'price' => 1800],
+            ['location' => 'within', 'duration' => '24hrs', 'price' => 2000],
+            ['location' => 'outside', 'duration' => '12hrs', 'price' => 2000],
+            ['location' => 'outside', 'duration' => '24hrs', 'price' => 2500],
+        ];
 
-        CarRate::create([
-            'car_id' => 2,
-            'location' => 'outside',
-            'duration' => '12hrs',
-            'price' => 2000
-        ]);
+        foreach ($viosRates as $rate) {
+            CarRate::firstOrCreate([
+                'car_id' => $vios->id,
+                'location' => $rate['location'],
+                'duration' => $rate['duration'],
+            ], ['price' => $rate['price']]);
+        }
 
-        CarRate::create([
-            'car_id' => 2,
-            'location' => 'outside',
-            'duration' => '24hrs',
-            'price' => 2500
-        ]);
+        // Rates for Veloz
+        $velozRates = [
+            ['location' => 'within', 'duration' => '12hrs', 'price' => 2300],
+            ['location' => 'within', 'duration' => '24hrs', 'price' => 3000],
+            ['location' => 'outside', 'duration' => '12hrs', 'price' => 2500],
+            ['location' => 'outside', 'duration' => '24hrs', 'price' => 3500],
+        ];
 
-        // Toyota Veloz (car_id = 3)
-
-        CarRate::create([
-            'car_id' => 3,
-            'location' => 'within',
-            'duration' => '12hrs',
-            'price' => 2300
-        ]);
-
-        CarRate::create([
-            'car_id' => 3,
-            'location' => 'within',
-            'duration' => '24hrs',
-            'price' => 3000
-        ]);
-
-        CarRate::create([
-            'car_id' => 3,
-            'location' => 'outside',
-            'duration' => '12hrs',
-            'price' => 2500
-        ]);
-
-        CarRate::create([
-            'car_id' => 3,
-            'location' => 'outside',
-            'duration' => '24hrs',
-            'price' => 3500
-        ]);
+        foreach ($velozRates as $rate) {
+            CarRate::firstOrCreate([
+                'car_id' => $veloz->id,
+                'location' => $rate['location'],
+                'duration' => $rate['duration'],
+            ], ['price' => $rate['price']]);
+        }
     }
 }

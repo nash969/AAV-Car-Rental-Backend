@@ -7,8 +7,10 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\TraccarController;
 
 Route::apiResource('cars', CarController::class);
+Route::get('vehicles/{id}/location', [TraccarController::class, 'location']);
 Route::post('register', [AuthController::class, 'register']);
 Route::post('login', [AuthController::class, 'login']);
 Route::apiResource('bookings', BookingController::class)->only(['index', 'show']);
