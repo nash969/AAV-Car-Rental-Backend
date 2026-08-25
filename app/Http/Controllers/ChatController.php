@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use App\Models\Car;
+use App\Models\AiChatLog;
 
 class ChatController extends Controller
 {
@@ -136,6 +137,56 @@ class ChatController extends Controller
             ], $response->status());
         }
 
+        $aiText = data_get(
+            $response->json(),
+            'candidates.0.content.parts.0.text'
+        );
+
+        if ($aiText) {
+            AiChatLog::create([
+                'user_id' => $request->user()?->id,
+                'message' => $request->message,
+                'response' => $aiText,
+                'source' => 'AI',
+            ]);
+        }
+
         return response()->json($response->json());
+    }
+
+    public function logLocal(Request $request)
+    {
+        $validated = $request->validate([
+            'message' => 'required|string',
+            'response' => 'required|string',
+        ]);
+
+        $log = AiChatLog::create([
+            'user_id' => $request->user()->id,
+            'message' => $validated['message'],
+            'response' => $validated['response'],
+            'source' => 'Local',
+        ]);
+
+        return response()->json([
+            'message' => 'Local chat logged successfully.',
+            'data' => $log
+        ], 201);
+    }
+
+    public function logs(Request $request)
+    {
+        $user = $request->user();
+
+        if (!in_array($user->role, ['admin', 'employee'])) {
+            return response()->json([
+                'message' => 'Unauthorized.'
+            ], 403);
+        }
+
+        return AiChatLog::with('user')
+            ->latest()
+            ->take(100)
+            ->get();
     }
 }

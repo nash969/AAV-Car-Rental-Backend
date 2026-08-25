@@ -18,29 +18,37 @@ class CarRateSeeder extends Seeder
             'car_id' => 2,
             'location' => 'within',
             'duration' => '12hrs',
-            'price' => 1800
+            'price' => 1499
         ]);
 
         CarRate::create([
             'car_id' => 2,
             'location' => 'within',
             'duration' => '24hrs',
-            'price' => 2000
+            'price' => 1999
         ]);
 
         CarRate::create([
             'car_id' => 2,
             'location' => 'outside',
             'duration' => '12hrs',
-            'price' => 2000
+            'price' => 1999
         ]);
 
         CarRate::create([
             'car_id' => 2,
             'location' => 'outside',
             'duration' => '24hrs',
-            'price' => 2500
+            'price' => 2499
         ]);
+
+        CarRate::create([
+            'car_id' => 2,
+            'location' => 'unli',
+            'duration' => '24hrs',
+            'price' => 2899
+        ]);
+
 
         // Toyota Veloz (car_id = 3)
 
@@ -48,28 +56,35 @@ class CarRateSeeder extends Seeder
             'car_id' => 3,
             'location' => 'within',
             'duration' => '12hrs',
-            'price' => 2300
+            'price' => 2399
         ]);
 
         CarRate::create([
             'car_id' => 3,
             'location' => 'within',
             'duration' => '24hrs',
-            'price' => 3000
+            'price' => 2799
         ]);
 
         CarRate::create([
             'car_id' => 3,
             'location' => 'outside',
             'duration' => '12hrs',
-            'price' => 2500
+            'price' => 2799
         ]);
 
         CarRate::create([
             'car_id' => 3,
             'location' => 'outside',
             'duration' => '24hrs',
-            'price' => 3500
+            'price' => 3299
+        ]);
+
+        CarRate::create([
+            'car_id' => 3,
+            'location' => 'unli',
+            'duration' => '24hrs',
+            'price' => 3799
         ]);
     }
 }

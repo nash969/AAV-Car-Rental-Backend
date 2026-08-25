@@ -22,14 +22,34 @@ class BookingController extends Controller
     // Create a new booking
     public function store(Request $request)
     {
+        $user = $request->user();
+
+        if ($user->verification_status !== 'verified') {
+
+            $message = match ($user->verification_status) {
+                'rejected' => 'Your account verification was rejected. Please contact AAV Car Rental Services for assistance.',
+                default => 'Your account is still pending verification. Please wait for admin approval before making a booking.',
+            };
+
+            return response()->json([
+                'message' => $message
+            ], 403);
+        }
+        
         $request->validate([
             'car_id' => 'required|exists:cars,id',
             'pickup_date' => 'required|date',
-            'return_date' => 'required|date|after_or_equal:pickup_date',
+            'return_date' => 'required|date|after:pickup_date',
 
-            'location' => 'required|in:within,outside',
+            'location' => 'required|in:within,outside,unli',
             'duration' => 'required|in:12hrs,24hrs',
         ]);
+
+        if ($request->location === 'unli' && $request->duration !== '24hrs') {
+            return response()->json([
+                'message' => 'Unli Mileage is available for 24 hours only.'
+            ], 422);
+        }
 
         $existingBooking = Booking::where('car_id', $request->car_id)
             ->where('status', 'confirmed')
@@ -56,16 +76,23 @@ class BookingController extends Controller
             ], 404);
         }
 
-        $days = Carbon::parse($request->pickup_date)
-            ->diffInDays(Carbon::parse($request->return_date));
+        $pickup = Carbon::parse($request->pickup_date);
+        $return = Carbon::parse($request->return_date);
 
-        if ($days < 1) {
-            $days = 1;
-        }
+        $hours = $pickup->diffInMinutes($return) / 60;
 
         if ($request->duration === '12hrs') {
+
             $totalPrice = $rate->price;
+
         } else {
+
+            $days = (int) ceil($hours / 24);
+
+            if ($days < 1) {
+                $days = 1;
+            }
+
             $totalPrice = $rate->price * $days;
         }
 
@@ -106,6 +133,52 @@ class BookingController extends Controller
 
         return response()->json([
             'message' => 'Booking status updated successfully',
+            'booking' => $booking,
+        ]);
+    }
+
+    public function updateRentalStatus(Request $request, Booking $booking)
+    {
+        abort_unless(
+            in_array($request->user()->role, ['admin', 'employee']),
+            403,
+            'Only administrators or employees can update rental status.'
+        );
+
+        $request->validate([
+            'status' => 'required|in:ongoing,completed',
+        ]);
+
+        if ($request->status === 'ongoing' && $booking->status !== 'confirmed') {
+            return response()->json([
+                'message' => 'Only confirmed bookings can be started as rentals.'
+            ], 422);
+        }
+
+        if ($request->status === 'completed' && $booking->status !== 'ongoing') {
+            return response()->json([
+                'message' => 'Only ongoing rentals can be completed.'
+            ], 422);
+        }
+
+        $booking->update([
+            'status' => $request->status,
+        ]);
+
+        if ($request->status === 'ongoing') {
+            $booking->car()->update([
+                'available' => false,
+            ]);
+        }
+
+        if ($request->status === 'completed') {
+            $booking->car()->update([
+                'available' => true,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Rental status updated successfully.',
             'booking' => $booking,
         ]);
     }

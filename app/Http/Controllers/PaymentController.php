@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Notification;
+use Carbon\Carbon;
 
 class PaymentController extends Controller
 {
@@ -37,18 +38,75 @@ class PaymentController extends Controller
         ]);
 
         $booking = Booking::findOrFail($validated['booking_id']);
-        abort_unless($booking->user_id === $request->user()->id, 403, 'You can only submit proof for your own booking.');
 
-        if ($booking->status !== 'pending') {
-            return response()->json(['message' => 'Only pending bookings can receive a payment confirmation.'], 422);
+        abort_unless(
+            $booking->user_id === $request->user()->id,
+            403,
+            'You can only submit proof for your own booking.'
+        );
+
+        if (!in_array($booking->status, ['pending', 'confirmed'])) {
+            return response()->json([
+                'message' => 'This booking cannot receive another payment.'
+            ], 422);
         }
 
         $hasOpenPayment = Payment::where('booking_id', $booking->id)
-            ->whereIn('status', ['pending', 'approved'])
+            ->where('status', 'pending')
             ->exists();
 
         if ($hasOpenPayment) {
-            return response()->json(['message' => 'This booking already has a payment awaiting review or approved.'], 422);
+            return response()->json([
+                'message' => 'This booking already has a payment awaiting review.'
+            ], 422);
+        }
+
+        // Total of all approved payments for this booking
+        $approvedPaid = Payment::where('booking_id', $booking->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+
+        // Remaining unpaid balance
+        $remainingBalance = max(
+            0,
+            (float) $booking->total_price - (float) $approvedPaid
+        );
+
+        $pickup = Carbon::parse($booking->pickup_date);
+        $return = Carbon::parse($booking->return_date);
+
+        $hours = $pickup->diffInMinutes($return) / 60;
+
+        $reservationDays = max(
+            1,
+            (int) ceil($hours / 24)
+        );
+
+        $requiredReservationFee = $reservationDays * 500;
+
+        // First payment must match the required reservation fee
+        if ((float) $approvedPaid < $requiredReservationFee) {
+            if ((float) $validated['amount'] != $requiredReservationFee) {
+                return response()->json([
+                    'message' => 'The required reservation payment for this booking is ₱' .
+                        number_format($requiredReservationFee, 2) . '.'
+                ], 422);
+            }
+        }
+
+        // Prevent payment when booking is already fully paid
+        if ($remainingBalance <= 0) {
+            return response()->json([
+                'message' => 'This booking is already fully paid.'
+            ], 422);
+        }
+
+        // Prevent overpayment
+        if ((float) $validated['amount'] > $remainingBalance) {
+            return response()->json([
+                'message' => 'Payment cannot exceed the remaining balance of ₱' .
+                    number_format($remainingBalance, 2) . '.'
+            ], 422);
         }
 
         $proofPath = $request->file('proof')->store('payment-proofs');
@@ -131,7 +189,9 @@ class PaymentController extends Controller
     public function proof(Request $request, Payment $payment)
     {
         $user = $request->user();
-        $mayView = $user->role === 'admin' || $payment->submitted_by === $user->id;
+        $mayView =
+            in_array($user->role, ['admin', 'employee']) ||
+            $payment->submitted_by === $user->id;
         abort_unless($mayView, 403, 'You are not allowed to view this payment proof.');
         abort_unless(Storage::exists($payment->proof_path), 404, 'Payment proof was not found.');
 

@@ -23,6 +23,12 @@ class User extends Authenticatable
         'name',
         'email',
         'phone',
+        'address',
+        'driver_license_number',
+        'government_id_path',
+        'driver_license_path',
+        'selfie_id_path',
+        'verification_status',
         'password',
         'role',
     ];
