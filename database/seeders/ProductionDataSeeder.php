@@ -119,5 +119,20 @@ class ProductionDataSeeder extends Seeder
                 ]
             );
         }
+
+        $employeePassword = env('PRODUCTION_EMPLOYEE_PASSWORD');
+
+        if ($employeePassword) {
+            User::updateOrCreate(
+                ['email' => 'employee@test.com'],
+                [
+                    'name' => 'Test Employee',
+                    'phone' => '09123456789',
+                    'role' => 'employee',
+                    'password' => Hash::make($employeePassword),
+                    'verification_status' => 'pending',
+                ]
+            );
+        }
     }
 }
