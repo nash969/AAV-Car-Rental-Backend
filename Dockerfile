@@ -1,6 +1,7 @@
 FROM richarvey/nginx-php-fpm:3.1.6
 
 COPY . /var/www/html
+COPY conf/nginx/nginx-site.conf /etc/nginx/sites-available/default.conf
 
 ENV SKIP_COMPOSER=1
 ENV WEBROOT=/var/www/html/public
