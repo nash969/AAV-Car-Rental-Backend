@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Notification;
 use Carbon\Carbon;
+use App\Models\SystemSetting;
 
 class PaymentController extends Controller
 {
@@ -82,7 +83,12 @@ class PaymentController extends Controller
             (int) ceil($hours / 24)
         );
 
-        $requiredReservationFee = $reservationDays * 500;
+        $settings = SystemSetting::first();
+
+        $reservationFeePerDay = (float) ($settings?->reservation_fee ?? 500);
+
+        $requiredReservationFee =
+            $reservationDays * $reservationFeePerDay;
 
         // First payment must match the required reservation fee
         if ((float) $approvedPaid < $requiredReservationFee) {
@@ -130,6 +136,115 @@ class PaymentController extends Controller
         ], 201);
     }
 
+    public function storeCash(Request $request)
+    {
+        abort_unless(
+            $request->user()->role === 'admin',
+            403,
+            'Only administrators can record cash payments.'
+        );
+
+        $validated = $request->validate([
+            'booking_id' => 'required|integer|exists:bookings,id',
+            'amount' => 'required|numeric|min:1|max:999999.99',
+            'payer_name' => 'required|string|max:255',
+        ]);
+
+        $booking = Booking::findOrFail($validated['booking_id']);
+
+        $hasOpenPayment = Payment::where('booking_id', $booking->id)
+            ->where('status', 'pending')
+            ->exists();
+
+        if ($hasOpenPayment) {
+            return response()->json([
+                'message' => 'This booking has a payment awaiting review. Please review it first before recording cash.'
+            ], 422);
+        }
+
+        if (!in_array($booking->status, ['pending', 'confirmed'])) {
+            return response()->json([
+                'message' => 'This booking cannot receive another payment.'
+            ], 422);
+        }
+
+        $approvedPaid = Payment::where('booking_id', $booking->id)
+            ->where('status', 'approved')
+            ->sum('amount');
+        
+        $pickup = Carbon::parse($booking->pickup_date);
+        $return = Carbon::parse($booking->return_date);
+
+        $hours = $pickup->diffInMinutes($return) / 60;
+
+        $reservationDays = max(
+            1,
+            (int) ceil($hours / 24)
+        );
+
+        $settings = SystemSetting::first();
+
+        $reservationFeePerDay = (float) ($settings?->reservation_fee ?? 500);
+
+        $requiredReservationFee =
+            $reservationDays * $reservationFeePerDay;
+
+        if ((float) $approvedPaid < $requiredReservationFee) {
+            return response()->json([
+                'message' => 'The required reservation fee must be approved first before recording the remaining balance in cash.'
+            ], 422);
+        }
+
+        $remainingBalance = max(
+            0,
+            (float) $booking->total_price - (float) $approvedPaid
+        );
+
+        if ($remainingBalance <= 0) {
+            return response()->json([
+                'message' => 'This booking is already fully paid.'
+            ], 422);
+        }
+
+        if ((float) $validated['amount'] > $remainingBalance) {
+            return response()->json([
+                'message' => 'Cash payment cannot exceed the remaining balance of ₱' .
+                    number_format($remainingBalance, 2) . '.'
+            ], 422);
+        }
+
+        $payment = Payment::create([
+            'booking_id' => $booking->id,
+            'submitted_by' => $booking->user_id,
+            'method' => 'cash',
+            'amount' => $validated['amount'],
+            'payer_name' => $validated['payer_name'],
+            'reference_number' => null,
+            'paid_at' => now(),
+            'proof_path' => null,
+            'status' => 'approved',
+            'customer_confirmed_at' => null,
+            'reviewed_by' => $request->user()->id,
+            'reviewed_at' => now(),
+            'review_note' => 'Cash payment received and recorded by administrator.',
+        ]);
+
+        Notification::create([
+            'user_id' => $booking->user_id,
+            'booking_id' => $booking->id,
+            'payment_id' => $payment->id,
+            'title' => 'Cash Payment Recorded',
+            'message' => 'A cash payment of ₱' .
+                number_format((float) $validated['amount'], 2) .
+                ' has been recorded for Booking #' . $booking->id . '.',
+        ]);
+
+        return response()->json([
+            'message' => 'Cash payment recorded successfully.',
+            'payment' => $payment->load(['booking.car', 'submitter', 'reviewer']),
+        ], 201);
+    }
+
     public function review(Request $request, Payment $payment)
     {
         abort_unless($request->user()->role === 'admin', 403, 'Only administrators can review payments.');
@@ -150,6 +265,27 @@ class PaymentController extends Controller
                 abort(422, 'This payment has already been reviewed.');
             }
 
+            if ($validated['status'] === 'approved') {
+
+                $booking = $lockedPayment->booking;
+
+                $conflictingBooking = Booking::where('car_id', $booking->car_id)
+                    ->where('id', '!=', $booking->id)
+                    ->whereIn('status', ['confirmed', 'ongoing'])
+                    ->where(function ($query) use ($booking) {
+                        $query->where('pickup_date', '<', $booking->return_date)
+                            ->where('return_date', '>', $booking->pickup_date);
+                    })
+                    ->exists();
+
+                if ($conflictingBooking) {
+                    abort(
+                        422,
+                        'This vehicle is already reserved for the selected dates. The payment cannot be approved.'
+                    );
+                }
+            }
+
             $lockedPayment->update([
                 'status' => $validated['status'],
                 'reviewed_by' => $request->user()->id,
@@ -163,8 +299,7 @@ class PaymentController extends Controller
 
                 $booking->update([
                     'status' => 'confirmed',
-                ]);                
-                
+                ]);
             }
 
             return $lockedPayment;
@@ -172,9 +307,13 @@ class PaymentController extends Controller
 
         Notification::create([
             'user_id' => $payment->submitted_by,
+            'booking_id' => $payment->booking_id,
+            'payment_id' => $payment->id,
+
             'title' => $payment->status === 'approved'
                 ? 'Payment Approved'
                 : 'Payment Rejected',
+
             'message' => $payment->status === 'approved'
                 ? 'Your payment has been approved and your booking is now confirmed.'
                 : 'Your payment has been rejected. Reason: ' . ($payment->review_note ?? 'No reason provided.'),
@@ -189,11 +328,28 @@ class PaymentController extends Controller
     public function proof(Request $request, Payment $payment)
     {
         $user = $request->user();
+
         $mayView =
             in_array($user->role, ['admin', 'employee']) ||
             $payment->submitted_by === $user->id;
-        abort_unless($mayView, 403, 'You are not allowed to view this payment proof.');
-        abort_unless(Storage::exists($payment->proof_path), 404, 'Payment proof was not found.');
+
+        abort_unless(
+            $mayView,
+            403,
+            'You are not allowed to view this payment proof.'
+        );
+
+        if (blank($payment->proof_path)) {
+            return response()->json([
+                'message' => 'No payment proof is required for this payment.'
+            ], 404);
+        }
+
+        abort_unless(
+            Storage::exists($payment->proof_path),
+            404,
+            'Payment proof was not found.'
+        );
 
         return Storage::response($payment->proof_path);
     }

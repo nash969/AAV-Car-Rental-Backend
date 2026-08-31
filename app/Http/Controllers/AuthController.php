@@ -95,8 +95,38 @@ class AuthController extends Controller
     public function sendResetOtp(Request $request)
     {
         $request->validate([
-            'email' => 'required|email|exists:users,email'
+            'email' => 'required|email'
         ]);
+
+        $userExists = User::where('email', $request->email)->exists();
+
+        if (!$userExists) {
+            return response()->json([
+                'message' => 'If an account exists for this email, an OTP has been sent.'
+            ]);
+        }
+
+        $existingOtp = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if ($existingOtp) {
+            $secondsSinceLastRequest = (int) abs(
+                now()->diffInSeconds($existingOtp->created_at)
+            );
+
+            if ($secondsSinceLastRequest < 60) {
+                $remainingSeconds = max(
+                    1,
+                    60 - $secondsSinceLastRequest
+                );
+
+                return response()->json([
+                    'message' => "Please wait {$remainingSeconds} seconds before requesting another OTP.",
+                    'retry_after' => $remainingSeconds,
+                ], 429);
+            }
+        }
 
         $otp = random_int(100000, 999999);
 
@@ -106,7 +136,9 @@ class AuthController extends Controller
             ],
             [
                 'token' => Hash::make((string) $otp),
-                'created_at' => now()
+                'created_at' => now(),
+                'verified_at' => null,
+                'attempts' => 0
             ]
         );
 
@@ -120,7 +152,7 @@ class AuthController extends Controller
         );
 
         return response()->json([
-            'message' => 'OTP sent successfully to your email.'
+            'message' => 'If an account exists for this email, an OTP has been sent.'
         ]);
     }
 
@@ -137,8 +169,14 @@ class AuthController extends Controller
 
         if (!$record) {
             return response()->json([
-                'message' => 'No OTP request found for this email.'
-            ], 404);
+                'message' => 'Invalid or expired OTP.'
+            ], 422);
+        }
+
+        if ($record->attempts >= 5) {
+            return response()->json([
+                'message' => 'Too many incorrect OTP attempts. Please request a new OTP.'
+            ], 429);
         }
 
         // OTP valid for 10 minutes
@@ -149,10 +187,32 @@ class AuthController extends Controller
         }
 
         if (!Hash::check((string) $request->otp, $record->token)) {
+            $newAttempts = $record->attempts + 1;
+
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->update([
+                    'attempts' => $newAttempts
+                ]);
+
+            $remainingAttempts = max(0, 5 - $newAttempts);
+
+            if ($newAttempts >= 5) {
+                return response()->json([
+                    'message' => 'Too many incorrect OTP attempts. Please request a new OTP.'
+                ], 429);
+            }
+
             return response()->json([
-                'message' => 'Invalid OTP.'
+                'message' => "Invalid OTP. {$remainingAttempts} attempt(s) remaining."
             ], 422);
         }
+
+        DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->update([
+                'verified_at' => now()
+            ]);
 
         return response()->json([
             'message' => 'OTP verified successfully.'
@@ -165,6 +225,26 @@ class AuthController extends Controller
             'email' => 'required|email|exists:users,email',
             'password' => 'required|string|min:8|confirmed',
         ]);
+
+        $resetRecord = DB::table('password_reset_tokens')
+            ->where('email', $request->email)
+            ->first();
+
+        if (!$resetRecord || !$resetRecord->verified_at) {
+            return response()->json([
+                'message' => 'OTP verification is required before resetting the password.'
+            ], 403);
+        }
+
+        if (now()->diffInMinutes($resetRecord->verified_at) > 10) {
+            DB::table('password_reset_tokens')
+                ->where('email', $request->email)
+                ->delete();
+
+            return response()->json([
+                'message' => 'OTP verification has expired. Please request a new OTP.'
+            ], 403);
+        }
 
         $user = User::where('email', $request->email)->firstOrFail();
 

@@ -10,9 +10,11 @@ class TrackingController extends Controller
     public function devices()
     {
         $response = Http::withBasicAuth(
-            env('TRACCAR_EMAIL'),
-            env('TRACCAR_PASSWORD')
-        )->get('http://localhost:8082/api/devices');
+            config('services.traccar.email'),
+            config('services.traccar.password')
+        )->get(
+            config('services.traccar.url') . '/api/devices'
+        );
 
         if ($response->failed()) {
             return response()->json([

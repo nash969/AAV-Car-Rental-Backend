@@ -8,6 +8,9 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\TrackingController;
+use App\Http\Controllers\TraccarController;
+use App\Http\Controllers\SystemSettingController;
+use App\Http\Controllers\VehicleMaintenanceController;
 
 Route::apiResource('cars', CarController::class);
 Route::post('register', [AuthController::class, 'register']);
@@ -17,10 +20,12 @@ Route::post('forgot-password/verify-otp', [AuthController::class, 'verifyResetOt
 Route::post('forgot-password/reset', [AuthController::class, 'resetPassword']);
 Route::apiResource('bookings', BookingController::class)->only(['index', 'show']);
 Route::get('tracking/devices', [TrackingController::class, 'devices']);
+Route::get('vehicles/{id}/location', [TraccarController::class, 'location']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('bookings', [BookingController::class, 'store']);
-    Route::patch('bookings/{booking}', [BookingController::class, 'update']);
     Route::patch('bookings/{booking}/rental-status', [BookingController::class, 'updateRentalStatus']);
+    Route::patch('bookings/{booking}/customer-update', [BookingController::class, 'updateCustomerBooking']);
+    Route::patch('bookings/{booking}/cancel', [BookingController::class, 'cancelCustomerBooking']);
     Route::get('users/{user_id}/bookings', [BookingController::class, 'userBookings']);
     Route::get('my/bookings', [BookingController::class, 'myBookings']);
     Route::get('customers', [AuthController::class, 'customers']);
@@ -30,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('bookings/check-availability', [BookingController::class, 'checkAvailability']);
     Route::get('payments', [PaymentController::class, 'index']);
     Route::post('payments', [PaymentController::class, 'store']);
+    Route::post('payments/cash', [PaymentController::class, 'storeCash']);
     Route::patch('payments/{payment}/review', [PaymentController::class, 'review']);
     Route::get('payments/{payment}/proof', [PaymentController::class, 'proof']);
     Route::get('/notifications/{userId}', [NotificationController::class, 'index']);
@@ -37,4 +43,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/chat', [ChatController::class, 'chat']);
     Route::post('/chat/log', [ChatController::class, 'logLocal']);
     Route::get('/chat-logs', [ChatController::class, 'logs']);
+    Route::get('/settings', [SystemSettingController::class, 'show']);
+    Route::patch('/settings', [SystemSettingController::class, 'update']);
+    Route::get('/maintenance', [VehicleMaintenanceController::class, 'index']);
+    Route::get('/maintenance/vehicles', [VehicleMaintenanceController::class, 'vehicles']);
+    Route::get('/maintenance/schedules', [VehicleMaintenanceController::class, 'schedules']);
+    Route::patch('/maintenance/vehicles/{carId}/mileage', [VehicleMaintenanceController::class, 'updateMileage']);
+    Route::post('/maintenance/vehicles/{carId}/initialize', [VehicleMaintenanceController::class, 'initializeVehicle']);
+    Route::post('/maintenance/vehicles/{carId}/start', [VehicleMaintenanceController::class, 'start']);
+    Route::patch('/maintenance/{maintenanceId}/complete', [VehicleMaintenanceController::class, 'complete']);
 });

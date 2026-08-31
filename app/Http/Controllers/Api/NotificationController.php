@@ -11,7 +11,11 @@ class NotificationController extends Controller
     // Get all notifications of a user
     public function index($userId)
     {
-        return Notification::where('user_id', $userId)
+        return Notification::with([
+            'booking.car',
+            'payment'
+        ])
+            ->where('user_id', $userId)
             ->latest()
             ->get();
     }

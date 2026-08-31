@@ -52,6 +52,7 @@ class ChatController extends Controller
         Payment Methods:
         - GCash
         - Bank Transfer
+        - Cash is accepted only for paying the remaining balance directly to AAV Car Rental Services. Cash payments are recorded by the administrator in the system.
 
         Reservation Fee:
         ₱500 per rental day.
@@ -69,8 +70,9 @@ class ChatController extends Controller
         6. Submit the booking.
         7. Go to Payments and pay the reservation fee through GCash or Bank Transfer.
         8. Upload the payment receipt or proof of payment.
-        9. Wait for the admin to verify the payment and approve the reservation.
+        9. Wait for the Admin to verify the payment and approve the reservation.
         10. Once approved, the customer will receive a notification and the booking status will be updated.
+        11. Any remaining balance may be paid through GCash or Bank Transfer, or paid in cash directly to AAV Car Rental Services. Cash payments are recorded by the Admin in the system.
 
         Rental Extension:
         Customers who want to extend their rental period must contact AAV Car Rental Services before the original return schedule. The extension is subject to vehicle availability and additional rental charges.
@@ -119,7 +121,9 @@ class ChatController extends Controller
                                 - If the user asks about prices, use only the rates listed above.
                                 - If the user asks about the office location, payment methods, reservation fee, or cancellation policy, use the Business Information above.
                                 - If you don't know something from the provided data, politely say that the information is unavailable.
-
+                                - Keep responses clear and easy to read.
+                                - You may use simple numbered or bullet lists when helpful.
+                                - Do not use Markdown formatting such as asterisks for bold or italics.
                                 Customer Question:
                                 {$request->message}"
                             ]

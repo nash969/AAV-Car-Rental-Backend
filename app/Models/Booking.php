@@ -14,6 +14,8 @@ class Booking extends Model
         'car_id',
         'pickup_date',
         'return_date',
+        'location',
+        'duration',
         'status',
         'total_price',
     ];
