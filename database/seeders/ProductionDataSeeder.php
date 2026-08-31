@@ -104,5 +104,20 @@ class ProductionDataSeeder extends Seeder
                 ]
             );
         }
+
+        $customerPassword = env('PRODUCTION_CUSTOMER_PASSWORD');
+
+        if ($customerPassword) {
+            User::updateOrCreate(
+                ['email' => 'jonashbernardino9@gmail.com'],
+                [
+                    'name' => 'Jonash Bernardino',
+                    'phone' => '09196550843',
+                    'role' => 'customer',
+                    'password' => Hash::make($customerPassword),
+                    'verification_status' => 'verified',
+                ]
+            );
+        }
     }
 }
