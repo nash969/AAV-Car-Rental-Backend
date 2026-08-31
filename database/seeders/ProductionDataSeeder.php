@@ -6,6 +6,8 @@ use Illuminate\Database\Seeder;
 use App\Models\Car;
 use App\Models\CarRate;
 use App\Models\SystemSetting;
+use App\Models\User;
+use Illuminate\Support\Facades\Hash;
 
 class ProductionDataSeeder extends Seeder
 {
@@ -88,5 +90,19 @@ class ProductionDataSeeder extends Seeder
         );
 
         $this->call(MaintenanceScheduleSeeder::class);
+
+        $adminPassword = env('PRODUCTION_ADMIN_PASSWORD');
+
+        if ($adminPassword) {
+            User::updateOrCreate(
+                ['email' => 'admin@aav.com'],
+                [
+                    'name' => 'System Admin',
+                    'phone' => '09123456789',
+                    'role' => 'admin',
+                    'password' => Hash::make($adminPassword),
+                ]
+            );
+        }
     }
 }
