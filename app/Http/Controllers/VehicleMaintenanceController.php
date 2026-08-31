@@ -80,7 +80,7 @@ class VehicleMaintenanceController extends Controller
             403,
             'Only administrators can initialize vehicle maintenance.'
         );
-        
+
         $car = Car::findOrFail($carId);
 
         if ($car->maintenance_initialized) {
@@ -107,6 +107,7 @@ class VehicleMaintenanceController extends Controller
             'maintenance_baseline_mileage' => $validated['current_mileage'],
             'maintenance_baseline_date' => now()->toDateString(),
             'last_inspection_date' => $validated['last_inspection_date'] ?? null,
+            'last_comprehensive_inspection_date' => $validated['last_inspection_date'] ?? null,
             'maintenance_initialized' => true,
         ]);
 
