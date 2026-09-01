@@ -35,14 +35,33 @@ class AuthController extends Controller
             ], 422);
         }
 
-        $governmentIdPath = $request->file('government_id')
-            ->store('customer-documents/government-ids');
+        $governmentIdUpload = cloudinary()->uploadApi()->upload(
+            $request->file('government_id')->getRealPath(),
+            [
+                'folder' => 'aav-car-rental/customer-documents/government-ids',
+                'type' => 'authenticated',
+            ]
+        );
 
-        $driverLicensePath = $request->file('driver_license')
-            ->store('customer-documents/driver-licenses');
+        $driverLicenseUpload = cloudinary()->uploadApi()->upload(
+            $request->file('driver_license')->getRealPath(),
+            [
+                'folder' => 'aav-car-rental/customer-documents/driver-licenses',
+                'type' => 'authenticated',
+            ]
+        );
 
-        $selfieIdPath = $request->file('selfie_id')
-            ->store('customer-documents/selfies');
+        $selfieIdUpload = cloudinary()->uploadApi()->upload(
+            $request->file('selfie_id')->getRealPath(),
+            [
+                'folder' => 'aav-car-rental/customer-documents/selfies',
+                'type' => 'authenticated',
+            ]
+        );
+
+        $governmentIdPath = $governmentIdUpload['public_id'];
+        $driverLicensePath = $driverLicenseUpload['public_id'];
+        $selfieIdPath = $selfieIdUpload['public_id'];
 
         $user = User::create([
             'name' => $request->name,
@@ -322,13 +341,18 @@ class AuthController extends Controller
             abort(404, 'Document type not found.');
         }
 
-        $path = $documents[$type];
+        $publicId = $documents[$type];
 
-        if (!$path || !Storage::disk('local')->exists($path)) {
+        if (!$publicId) {
             abort(404, 'Document file not found.');
         }
 
-        return Storage::disk('local')->response($path);
+        $url = cloudinary()->image($publicId)
+            ->deliveryType('authenticated')
+            ->signUrl(true)
+            ->toUrl();
+
+        return redirect()->away($url);
     }
 
     public function reviewCustomerVerification(Request $request, User $user)

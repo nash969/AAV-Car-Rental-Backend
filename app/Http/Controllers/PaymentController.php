@@ -90,11 +90,10 @@ class PaymentController extends Controller
         $requiredReservationFee =
             $reservationDays * $reservationFeePerDay;
 
-        // First payment must match the required reservation fee
         if ((float) $approvedPaid < $requiredReservationFee) {
-            if ((float) $validated['amount'] != $requiredReservationFee) {
+            if ((float) $validated['amount'] < $requiredReservationFee) {
                 return response()->json([
-                    'message' => 'The required reservation payment for this booking is ₱' .
+                    'message' => 'The minimum reservation payment for this booking is ₱' .
                         number_format($requiredReservationFee, 2) . '.'
                 ], 422);
             }
@@ -115,7 +114,15 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        $proofPath = $request->file('proof')->store('payment-proofs');
+        $proofUpload = cloudinary()->uploadApi()->upload(
+            $request->file('proof')->getRealPath(),
+            [
+                'folder' => 'aav-car-rental/payment-proofs',
+                'type' => 'authenticated',
+            ]
+        );
+
+        $proofPath = $proofUpload['public_id'];
 
         $payment = Payment::create([
             'booking_id' => $booking->id,
@@ -345,12 +352,11 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        abort_unless(
-            Storage::exists($payment->proof_path),
-            404,
-            'Payment proof was not found.'
-        );
+        $url = cloudinary()->image($payment->proof_path)
+            ->deliveryType('authenticated')
+            ->signUrl(true)
+            ->toUrl();
 
-        return Storage::response($payment->proof_path);
+        return redirect()->away($url);
     }
 }
