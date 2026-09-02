@@ -91,9 +91,9 @@ class PaymentController extends Controller
             $reservationDays * $reservationFeePerDay;
 
         if ((float) $approvedPaid < $requiredReservationFee) {
-            if ((float) $validated['amount'] < $requiredReservationFee) {
+            if ((float) $validated['amount'] != $requiredReservationFee) {
                 return response()->json([
-                    'message' => 'The minimum reservation payment for this booking is ₱' .
+                    'message' => 'The required reservation fee for this booking is ₱' .
                         number_format($requiredReservationFee, 2) . '.'
                 ], 422);
             }
