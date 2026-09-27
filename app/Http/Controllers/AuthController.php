@@ -377,6 +377,20 @@ class AuthController extends Controller
             'verification_status' => $request->status,
         ]);
 
+        if ($request->status === 'verified') {
+            Mail::raw(
+                "Hello {$user->name},\n\n" .
+                "Good news! Your AAV Car Rental Services account has been approved.\n\n" .
+                "You can now log in to your account and use the available car rental services.\n\n" .
+                "Thank you,\n" .
+                "AAV Car Rental Services",
+                function ($message) use ($user) {
+                    $message->to($user->email)
+                        ->subject('AAV Car Rental Services - Account Approved');
+                }
+            );
+        }
+
         return response()->json([
             'message' => 'Customer verification updated successfully.',
             'user' => $user,
