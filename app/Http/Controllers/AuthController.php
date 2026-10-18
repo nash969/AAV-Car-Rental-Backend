@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 
 class AuthController extends Controller
 {
@@ -161,14 +162,23 @@ class AuthController extends Controller
             ]
         );
 
-        Mail::raw(
-            "Your AAV Car Rental Services password reset OTP is: {$otp}\n\n" .
-            "This code will expire in 10 minutes.",
-            function ($message) use ($request) {
-                $message->to($request->email)
-                    ->subject('AAV Car Rental Services - Password Reset OTP');
-            }
-        );
+        Http::withHeaders([
+            'api-key' => env('BREVO_API_KEY'),
+            'Content-Type' => 'application/json',
+            'Accept' => 'application/json',
+        ])->post('https://api.brevo.com/v3/smtp/email', [
+            'sender' => [
+                'name' => env('MAIL_FROM_NAME', 'AAV Car Rental Services'),
+                'email' => env('MAIL_FROM_ADDRESS')
+            ],
+            'to' => [
+                [
+                    'email' => $request->email
+                ]
+            ],
+            'subject' => 'AAV Car Rental Services - Password Reset OTP',
+            'htmlContent' => "<p>Your AAV Car Rental Services password reset OTP is: <strong>{$otp}</strong></p><p>This code will expire in 10 minutes.</p>"
+        ]);
 
         return response()->json([
             'message' => 'If an account exists for this email, an OTP has been sent.'
@@ -378,17 +388,24 @@ class AuthController extends Controller
         ]);
 
         if ($request->status === 'verified') {
-            Mail::raw(
-                "Hello {$user->name},\n\n" .
-                "Good news! Your AAV Car Rental Services account has been approved.\n\n" .
-                "You can now log in to your account and use the available car rental services.\n\n" .
-                "Thank you,\n" .
-                "AAV Car Rental Services",
-                function ($message) use ($user) {
-                    $message->to($user->email)
-                        ->subject('AAV Car Rental Services - Account Approved');
-                }
-            );
+            Http::withHeaders([
+                'api-key' => env('BREVO_API_KEY'),
+                'Content-Type' => 'application/json',
+                'Accept' => 'application/json',
+            ])->post('https://api.brevo.com/v3/smtp/email', [
+                'sender' => [
+                    'name' => env('MAIL_FROM_NAME', 'AAV Car Rental Services'),
+                    'email' => env('MAIL_FROM_ADDRESS')
+                ],
+                'to' => [
+                    [
+                        'email' => $user->email,
+                        'name' => $user->name
+                    ]
+                ],
+                'subject' => 'AAV Car Rental Services - Account Approved',
+                'htmlContent' => "<p>Hello {$user->name},</p><p>Good news! Your AAV Car Rental Services account has been approved.</p><p>You can now log in to your account and use the available car rental services.</p><p>Thank you,<br>AAV Car Rental Services</p>"
+            ]);
         }
 
         return response()->json([
