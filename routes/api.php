@@ -11,6 +11,7 @@ use App\Http\Controllers\TrackingController;
 use App\Http\Controllers\TraccarController;
 use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\VehicleMaintenanceController;
+use App\Http\Controllers\EmployeeController;
 
 Route::apiResource('cars', CarController::class);
 Route::post('register', [AuthController::class, 'register']);
@@ -52,4 +53,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/maintenance/vehicles/{carId}/initialize', [VehicleMaintenanceController::class, 'initializeVehicle']);
     Route::post('/maintenance/vehicles/{carId}/start', [VehicleMaintenanceController::class, 'start']);
     Route::patch('/maintenance/{maintenanceId}/complete', [VehicleMaintenanceController::class, 'complete']);
+    Route::get('/employees', [EmployeeController::class, 'index']);
+    Route::post('/employees', [EmployeeController::class, 'store']);
 });
